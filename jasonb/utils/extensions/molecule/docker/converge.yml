@@ -1,0 +1,67 @@
+#---
+#- name: Include a playbook from a collection
+#  ansible.builtin.import_playbook: jasonb.utils.my_playbook
+- name: Include a role from a collection
+  hosts: all
+  vars:
+    ansible_python_interpreter: /usr/bin/python3
+  gather_facts: false
+  tasks:
+    - name: Testing role
+      ansible.builtin.include_role:
+        name: jasonb.utils.ansible_role_nginx
+        tasks_from: main.yml
+
+- name: Check installed packages
+  hosts: all
+  tasks:
+    - name: Gather the package manager facts
+      package_facts:
+        manager: auto
+ 
+    - name: Assert that the nginx package is installed
+      assert:
+        that:
+          - "'nginx' in ansible_facts.packages"
+    
+    - name: Populate service facts
+      ansible.builtin.service_facts:
+
+    - name: Print service facts
+      ansible.builtin.debug:
+        var: ansible_facts.services
+    
+    - name: Assert that nginx is running
+      assert:
+        that:
+          - ansible_facts.services['nginx'].state == 'running'
+
+    - name: Get stats on nginx.conf
+      stat:
+        path: "/etc/nginx/nginx.conf"
+      register: register_name
+
+    - name: Check nginx.conf exists and is a regular file
+      debug:
+        msg: "The file or directory exists"
+      when: register_name.stat.exists and register_name.stat.isreg   
+    
+    - name: Assert nginx.conf exists and is a regular file
+      assert:
+        that:
+          - register_name.stat.exists and register_name.stat.isreg   
+
+- name: Check http status
+  hosts: all
+  tasks:
+    - name: Attempt to connect to a web service
+      ansible.builtin.uri:
+        url: http://localhost
+        method: GET
+      register: web_service_response
+    
+    - name: Ensure the web service is responding correctly
+      assert:
+        that: 
+          - web_service_response.status == 200
+        fail_msg: "Web service did not return a 200 status"
